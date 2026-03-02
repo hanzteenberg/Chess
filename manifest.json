@@ -6,6 +6,6 @@
   "orientation": "any",
   "scope": "/",
   "short_name": "hanzteenberg.github",
-  "start_url": "/https://hanzteenberg.github.io/Chess/",
+  "start_url": "https://hanzteenberg.github.io/Chess/",
   "theme_color": "#000000"
 }
