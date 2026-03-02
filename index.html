@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cyber Chess 3D</title>
+    <meta name="theme-color" content="#000000">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-red: #ff0055;
+            --dark-bg: #050505;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { 
+            background: var(--dark-bg); 
+            color: white; 
+            font-family: 'Share Tech Mono', monospace; 
+            overflow: hidden; 
+            touch-action: none;
+        }
+
+        /* INTRO SCREEN */
+        #intro {
+            position: fixed; inset: 0; z-index: 100;
+            background: black;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center;
+            transition: opacity 0.5s;
+        }
+        #intro.hidden { opacity: 0; pointer-events: none; }
+        
+        .title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3rem; color: white;
+            text-shadow: 2px 2px 0px var(--neon-red);
+            margin-bottom: 10px;
+        }
+        
+        .dev-card {
+            border: 1px solid var(--neon-blue);
+            padding: 20px; margin: 30px;
+            position: relative;
+            background: rgba(0,243,255,0.05);
+            box-shadow: 0 0 20px rgba(0,243,255,0.2);
+        }
+        
+        .avatar {
+            width: 100px; height: 100px;
+            background: #111; border-radius: 50%;
+            margin: 0 auto 15px;
+            border: 2px solid var(--neon-blue);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; color: var(--neon-blue);
+            box-shadow: 0 0 15px var(--neon-blue);
+        }
+        
+        .btn-start {
+            margin-top: 20px;
+            padding: 15px 40px;
+            background: transparent;
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn-start:hover { background: var(--neon-blue); color: black; }
+
+        /* GAME UI */
+        #game-container { width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; }
+        
+        #hud {
+            position: fixed; top: 20px; left: 20px; z-index: 10;
+            pointer-events: none;
+        }
+        
+        .status-box {
+            background: rgba(0,0,0,0.8); padding: 10px 20px;
+            border-left: 3px solid var(--neon-blue);
+            display: flex; align-items: center; gap: 15px;
+        }
+        
+        .turn-light {
+            width: 15px; height: 15px; border-radius: 50%;
+            background: #333; transition: 0.3s;
+        }
+        .turn-light.active.white { background: white; box-shadow: 0 0 10px white; }
+        .turn-light.active.black { background: #333; border: 1px solid white; }
+        
+        #controls {
+            position: fixed; bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            display: flex; gap: 10px; z-index: 10;
+        }
+        
+        .btn {
+            background: rgba(0,0,0,0.7);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white; padding: 10px 20px;
+            font-family: 'Share Tech Mono', monospace;
+            cursor: pointer;
+        }
+        .btn:active { background: var(--neon-blue); color: black; }
+
+        .msg-box {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: black; border: 2px solid var(--neon-red);
+            padding: 40px; text-align: center; z-index: 200;
+            opacity: 0; transition: 0.3s;
+        }
+        .msg-box.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    </style>
+</head>
+<body>
+
+    <!-- INTRO -->
+    <div id="intro">
+        <div class="title">CHESS</div>
+        <div style="color: #888; letter-spacing: 5px;">V.4.5.1.4.18.1</div>
+        
+        <div class="dev-card">
+            <img src="prof.jpg" class="avatar">
+            <div style="color: var(--neon-blue); font-weight: bold;">Hanzteen:Haeften</div>
+            <div style="color: #666; font-size: 0.8rem; margin-top:5px;">SYSTEM ARCHITECT</div>
+        </div>
+        
+        <button class="btn-start" onclick="startGame()">ENTER SYSTEM</button>
+    </div>
+
+    <!-- GAME -->
+    <div id="game-container"></div>
+
+    <!-- HUD -->
+    <div id="hud" style="display:none;">
+        <div class="status-box">
+            <div class="turn-light active white" id="t-light"></div>
+            <span id="t-text">WHITE TURN</span>
+        </div>
+    </div>
+
+    <div id="controls" style="display:none;">
+        <button class="btn" onclick="game.reset()">RESTART</button>
+        <button class="btn" onclick="game.undo()">UNDO</button>
+    </div>
+
+    <div class="msg-box" id="msg-box">
+        <h2 id="m-title" style="color:var(--neon-red);">GAME OVER</h2>
+        <p id="m-text" style="margin:20px 0; color:#888;">Checkmate</p>
+        <button class="btn" onclick="game.reset(); hideMsg()">OK</button>
+    </div>
+
+    <!-- Script -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // Global Game Object
+        window.game = {
+            reset: null,
+            undo: null
+        };
+
+        // State Variables
+        let scene, camera, renderer, controls;
+        let boardLogic = []; // 2D array for logic
+        let piecesGroup, highlightGroup;
+        let raycaster, mouse;
+        let currentTurn = 'white';
+        let selectedPiece = null;
+        let validMoves = [];
+        let history = [];
+        let isDragging = false;
+        let clickStart = {x:0, y:0};
+
+        const TYPES = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
+
+        window.startGame = function() {
+            document.getElementById('intro').classList.add('hidden');
+            document.getElementById('hud').style.display = 'block';
+            document.getElementById('controls').style.display = 'flex';
+            init();
+        };
+
+        function init() {
+            // 1. Setup Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050505);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
+            camera.position.set(0, 10, 10);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            document.getElementById('game-container').appendChild(renderer.domElement);
+
+            // 2. Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2.1;
+
+            // 3. Lights
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dirL = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirL.position.set(5, 15, 8);
+            dirL.castShadow = true;
+            dirL.shadow.mapSize.width = 2048;
+            dirL.shadow.mapSize.height = 2048;
+            scene.add(dirL);
+
+            // 4. World
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            piecesGroup = new THREE.Group();
+            highlightGroup = new THREE.Group();
+            scene.add(piecesGroup);
+            scene.add(highlightGroup);
+
+            createBoard();
+            resetGame();
+
+            // 5. Events
+            window.addEventListener('resize', onResize);
+            // Pointer Events for Drag vs Click
+            renderer.domElement.addEventListener('pointerdown', e => {
+                isDragging = false;
+                clickStart.x = e.clientX;
+                clickStart.y = e.clientY;
+            });
+            renderer.domElement.addEventListener('pointermove', e => {
+                if(Math.abs(e.clientX - clickStart.x) > 5 || Math.abs(e.clientY - clickStart.y) > 5) {
+                    isDragging = true;
+                }
+            });
+            renderer.domElement.addEventListener('pointerup', e => {
+                if(!isDragging) handleClick(e);
+            });
+
+            animate();
+        }
+
+        function createBoard() {
+            // Base
+            const base = new THREE.Mesh(
+                new THREE.BoxGeometry(10, 0.2, 10),
+                new THREE.MeshStandardMaterial({color: 0x111111})
+            );
+            base.position.y = -0.15;
+            base.receiveShadow = true;
+            scene.add(base);
+
+            // Grid
+            const grid = new THREE.GridHelper(20, 40, 0x00f3ff, 0x111111);
+            grid.position.y = -0.05;
+            scene.add(grid);
+
+            // Squares
+            const wMat = new THREE.MeshStandardMaterial({color: 0xeeeeee, roughness:0.3});
+            const bMat = new THREE.MeshStandardMaterial({color: 0x222222, roughness:0.3});
+
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    const isW = (r+c)%2 === 0;
+                    const sq = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 1), isW ? wMat : bMat);
+                    sq.position.set(c-3.5, 0, r-3.5);
+                    sq.receiveShadow = true;
+                    sq.userData = {r, c, isBoard: true};
+                    scene.add(sq);
+                }
+            }
+        }
+
+        function resetGame() {
+            // Clear Logic
+            boardLogic = [];
+            for(let r=0; r<8; r++) {
+                boardLogic[r] = [];
+                for(let c=0; c<8; c++) boardLogic[r][c] = null;
+            }
+
+            // Clear Meshes
+            while(piecesGroup.children.length > 0) piecesGroup.remove(piecesGroup.children[0]);
+            
+            // Create Pieces
+            const wMat = new THREE.MeshStandardMaterial({color: 0xffffff, metalness:0.5, roughness:0.2});
+            const bMat = new THREE.MeshStandardMaterial({color: 0x111111, metalness:0.5, roughness:0.2});
+
+            TYPES.forEach((t, i) => {
+                addP(t, 'white', 0, i, wMat);
+                addP('pawn', 'white', 1, i, wMat);
+                addP(t, 'black', 7, i, bMat);
+                addP('pawn', 'black', 6, i, bMat);
+            });
+
+            currentTurn = 'white';
+            history = [];
+            selectedPiece = null;
+            clearHL();
+            updateUI();
+        }
+
+        function addP(type, color, row, col, mat) {
+            let geo;
+            
+            // Simplified Shapes
+            if(type==='pawn') geo = new THREE.CylinderGeometry(0.2, 0.3, 0.6, 16);
+            else if(type==='rook') geo = new THREE.BoxGeometry(0.5, 0.7, 0.5);
+            else if(type==='knight') geo = new THREE.BoxGeometry(0.25, 0.7, 0.5); // Box knight
+            else if(type==='bishop') geo = new THREE.ConeGeometry(0.3, 0.8, 16);
+            else if(type==='queen') geo = new THREE.SphereGeometry(0.35, 16, 16);
+            else if(type==='king') {
+                geo = new THREE.CylinderGeometry(0.15, 0.3, 0.8, 16);
+                // Add cross visual later if needed
+            }
+
+            if(!geo) return;
+
+            const m = new THREE.Mesh(geo, mat);
+            m.position.set(col-3.5, 0.4, row-3.5);
+            m.castShadow = true;
+            m.userData = {type, color, row, col, hasMoved: false, isPiece: true};
+            
+            piecesGroup.add(m);
+            boardLogic[row][col] = m;
+        }
+
+        function getMoves(p) {
+            const moves = [];
+            const {type, color, row, col} = p.userData;
+            const dir = color === 'white' ? 1 : -1;
+            const enemy = c => c && c.userData.color !== color;
+            const empty = c => !c;
+
+            // Helper check bounds
+            const inB = (r, c) => r>=0 && r<8 && c>=0 && c<8;
+            const get = (r, c) => inB(r,c) ? boardLogic[r][c] : null;
+
+            // Logic generators
+            const line = (dr, dc) => {
+                let nr = row+dr, nc = col+dc;
+                while(inB(nr,nc)) {
+                    const target = get(nr,nc);
+                    if(empty(target)) moves.push({r:nr, c:nc});
+                    else { if(enemy(target)) moves.push({r:nr, c:nc}); break; }
+                    nr+=dr; nc+=dc;
+                }
+            };
+
+            if(type==='pawn') {
+                if(empty(get(row+dir, col))) {
+                    moves.push({r:row+dir, c:col});
+                    if(!p.userData.hasMoved && empty(get(row+2*dir, col))) moves.push({r:row+2*dir, c:col});
+                }
+                if(enemy(get(row+dir, col-1))) moves.push({r:row+dir, c:col-1});
+                if(enemy(get(row+dir, col+1))) moves.push({r:row+dir, c:col+1});
+            }
+            else if(type==='rook') { line(1,0); line(-1,0); line(0,1); line(0,-1); }
+            else if(type==='bishop') { line(1,1); line(1,-1); line(-1,1); line(-1,-1); }
+            else if(type==='queen') { line(1,0); line(-1,0); line(0,1); line(0,-1); line(1,1); line(1,-1); line(-1,1); line(-1,-1); }
+            else if(type==='king') {
+                for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+                    if(dr===0 && dc===0) continue;
+                    const t = get(row+dr, col+dc);
+                    if(empty(t) || enemy(t)) moves.push({r:row+dr, c:col+dc});
+                }
+                // Castling (Simple logic: path clear)
+                if(!p.userData.hasMoved) {
+                    // King side
+                    const kRook = get(row, 7);
+                    if(kRook && !kRook.userData.hasMoved && empty(get(row,5)) && empty(get(row,6))) 
+                        moves.push({r:row, c:6, castle:'king'});
+                    // Queen side
+                    const qRook = get(row, 0);
+                    if(qRook && !qRook.userData.hasMoved && empty(get(row,1)) && empty(get(row,2)) && empty(get(row,3)))
+                        moves.push({r:row, c:2, castle:'queen'});
+                }
+            }
+            else if(type==='knight') {
+                const j = [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]];
+                j.forEach(([dr,dc]) => {
+                    const t = get(row+dr, col+dc);
+                    if(empty(t) || enemy(t)) moves.push({r:row+dr, c:col+dc});
+                });
+            }
+
+            return moves;
+        }
+
+        function showHL(moves) {
+            clearHL();
+            const geo = new THREE.RingGeometry(0.2, 0.3, 16);
+            moves.forEach(m => {
+                const isCap = boardLogic[m.r][m.c];
+                const isCast = m.castle;
+                let col = 0x00ff00; // Move
+                if(isCap) col = 0xff0000; // Attack
+                if(isCast) col = 0xffff00; // Castle
+
+                const mat = new THREE.MeshBasicMaterial({color: col, side:2});
+                const ring = new THREE.Mesh(geo, mat);
+                ring.position.set(m.c-3.5, 0.1, m.r-3.5);
+                ring.rotation.x = -Math.PI/2;
+                highlightGroup.add(ring);
+            });
+        }
+
+        function clearHL() {
+            while(highlightGroup.children.length > 0) highlightGroup.remove(highlightGroup.children[0]);
+        }
+
+        function moveP(p, move) {
+            const {r, c, castle} = move;
+            const oldR = p.userData.row;
+            const oldC = p.userData.col;
+            const target = boardLogic[r][c];
+
+            // Capture
+            if(target) {
+                piecesGroup.remove(target);
+                if(target.userData.type === 'king') alert("CHECKMATE!");
+            }
+
+            // Logic Update
+            boardLogic[oldR][oldC] = null;
+            boardLogic[r][c] = p;
+            p.userData.row = r;
+            p.userData.col = c;
+            p.userData.hasMoved = true;
+
+            // Visual Update (Animation)
+            anim(p, c-3.5, r-3.5);
+
+            // Castle Move Rook
+            if(castle) {
+                const row = oldR;
+                if(castle === 'king') {
+                    const rook = boardLogic[row][7];
+                    boardLogic[row][7] = null;
+                    boardLogic[row][5] = rook;
+                    anim(rook, 5-3.5, row-3.5);
+                    rook.userData.c = 5;
+                    rook.userData.hasMoved = true;
+                } else {
+                    const rook = boardLogic[row][0];
+                    boardLogic[row][0] = null;
+                    boardLogic[row][3] = rook;
+                    anim(rook, 3-3.5, row-3.5);
+                    rook.userData.c = 3;
+                    rook.userData.hasMoved = true;
+                }
+            }
+
+            // History
+            history.push({p, from:{r:oldR, c:oldC}, to:{r,c}, target, castle});
+
+            // Turn
+            currentTurn = currentTurn === 'white' ? 'black' : 'white';
+            updateUI();
+            clearHL();
+            selectedPiece = null;
+        }
+
+        function anim(obj, x, z) {
+            const s = {x:obj.position.x, z:obj.position.z};
+            const t = Date.now();
+            const loop = () => {
+                const p = Math.min(1, (Date.now()-t)/300);
+                obj.position.x = s.x + (x-s.x)*p;
+                obj.position.z = s.z + (z-s.z)*p;
+                obj.position.y = 0.4 + Math.sin(p*Math.PI)*0.5;
+                if(p<1) requestAnimationFrame(loop);
+                else obj.position.y = 0.4;
+            };
+            loop();
+        }
+
+        function handleClick(e) {
+            // Raycast
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            // Check Pieces first
+            const pHits = raycaster.intersectObjects(piecesGroup.children);
+            if(pHits.length > 0) {
+                const hit = pHits[0].object;
+                // Select Own
+                if(hit.userData.color === currentTurn) {
+                    selectedPiece = hit;
+                    validMoves = getMoves(hit);
+                    showHL(validMoves);
+                    return;
+                }
+                // Attack
+                if(selectedPiece) {
+                    const m = validMoves.find(m => m.r === hit.userData.row && m.c === hit.userData.col);
+                    if(m) moveP(selectedPiece, m);
+                    return;
+                }
+            }
+
+            // Check Board
+            if(selectedPiece) {
+                const bHits = raycaster.intersectObjects(scene.children.filter(c => c.userData.isBoard));
+                if(bHits.length > 0) {
+                    const {r, c} = bHits[0].object.userData;
+                    const m = validMoves.find(m => m.r === r && m.c === c);
+                    if(m) moveP(selectedPiece, m);
+                    else { clearHL(); selectedPiece = null; }
+                }
+            }
+        }
+
+        function updateUI() {
+            const light = document.getElementById('t-light');
+            light.className = 'turn-light active ' + currentTurn;
+            document.getElementById('t-text').innerText = currentTurn.toUpperCase() + " TURN";
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Expose to Global for HTML buttons
+        game.reset = resetGame;
+        game.undo = () => {
+            if(history.length === 0) return;
+            const last = history.pop();
+            
+            // Move back
+            const p = last.p;
+            boardLogic[last.to.r][last.to.c] = null;
+            boardLogic[last.from.r][last.from.c] = p;
+            p.userData.row = last.from.r;
+            p.userData.col = last.from.c;
+            p.userData.hasMoved = false; // Simple undo
+            anim(p, last.from.c-3.5, last.from.r-3.5);
+
+            // Restore capture
+            if(last.target) {
+                piecesGroup.add(last.target);
+                boardLogic[last.to.r][last.to.c] = last.target;
+            }
+
+            // Restore castle
+            if(last.castle) {
+                const row = last.from.r;
+                if(last.castle === 'king') {
+                    const rook = boardLogic[row][5];
+                    boardLogic[row][5] = null;
+                    boardLogic[row][7] = rook;
+                    anim(rook, 7-3.5, row-3.5);
+                } else {
+                    const rook = boardLogic[row][3];
+                    boardLogic[row][3] = null;
+                    boardLogic[row][0] = rook;
+                    anim(rook, 0-3.5, row-3.5);
+                }
+            }
+
+            currentTurn = currentTurn === 'white' ? 'black' : 'white';
+            updateUI();
+            clearHL();
+            selectedPiece = null;
+        };
+
+        window.exportAPK = () => {
+            alert("To create APK:\n1. Host this HTML file online (e.g., GitHub Pages).\n2. Go to pwabuilder.com.\n3. Paste your URL.\n4. Click 'Package for Stores'.");
+        };
+
+        window.hideMsg = () => {
+            document.getElementById('msg-box').classList.remove('show');
+        };
+
+    </script>
+</body>
+</html>
