@@ -1,0 +1,11 @@
+{
+  "background_color": "#ffffff",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "hanzteenberg.github",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "hanzteenberg.github",
+  "start_url": "/https://hanzteenberg.github.io/Chess/",
+  "theme_color": "#000000"
+}
